@@ -3,6 +3,7 @@ mod memory_allocator {
     pub mod chunk {
         use core::alloc::Layout;
         use std::alloc::alloc;
+        use std::any::Any;
 
         pub enum ChunkError {
             BadSize, //requested size is not a multple of 4kb
@@ -14,21 +15,20 @@ mod memory_allocator {
             avaliable: bool,
         }
         pub struct ChunkPointer<'a> {
-            pub chunk: &'a mut Chunk,
+            pub chunk: &'a mut Chunk<'a>,
         }
 
         pub struct Block<'a> {
             size: usize,
             inuse: bool,
-            next: Option<&'a mut Block>,
+            next: Option<&'a mut Block<'a>>,
         }
         pub struct Chunk<'a> {
             header: ChunkHeader,
-            first_block: Option<&'a mut Block>,
+            first_block: Option<&'a mut Block<'a>>,
         }
 
-        pub fn init_chunk<'static>(chunk_size: usize) -> Result<{'static>Chunk}, {<'static>ChunkError>}>{
-
+        pub fn init_chunk<'static>(chunk_size: usize) -> Result<Chunk<'static>, ChunkError> {
             let minimum_chunk_size = 4096;
             // the user must request a chunk size of a multiple of 4kb
             if chunk_size % minimum_chunk_size != 0 {
@@ -48,8 +48,8 @@ mod memory_allocator {
             return Ok(*chunk);
         }
 
-        impl Chunk {
-            fn search(block: &mut Block) -> Option<&mut Block> {
+        impl Chunk<'_> {
+            fn search<'a>(block: &'a mut Block<'a>) -> Option<&'a mut Block<'a>> {
                 // Iterively search for a avaliable block to give back to the user
                 let mut current = block;
                 while ((&current).next).is_some() {
@@ -91,7 +91,7 @@ mod memory_allocator {
                 fn get_block<'a>(
                     block: Option<&'a mut Block>,
                     pointer: &'a mut Block,
-                ) -> Option<&'a mut Block> {
+                ) -> Option<&'a mut Block<'a>> {
                     match block {
                         Some(b) => {
                             if *b == *pointer {
